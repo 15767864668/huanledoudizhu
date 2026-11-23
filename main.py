@@ -13,8 +13,10 @@ from view.Window import (Window, QThread, pyqtSignal, time, QtWidgets)
 from view.LogWindow import LogWindow
 import sys
 import win32com.client
+import win32con
+import win32gui
 
-hWnd = win32gui.FindWindow(None, "欢乐斗地主")
+hWnd = find_game_window()
 continueGame = cv2.imread('templete/continue_game.png', 0)
 # 0 没有出牌，1第一次检测到，2第二次检测到
 isUpOut = 0
@@ -77,7 +79,7 @@ class MyThread(QThread):
         super().__init__()
 
     def matchImgNum(self, bgImg, templeteImg, threshold=0.92, save=False):
-        res = cv2.matchTemplate(bgImg, templeteImg, cv2.TM_CCOEFF_NORMED)
+        if (bgImg is None or templeteImg is None or bgImg.size == 0 or\n                bgImg.shape[0] < templeteImg.shape[0] or\n                bgImg.shape[1] < templeteImg.shape[1]):\n            return 0, 0\n        res = cv2.matchTemplate(bgImg, templeteImg, cv2.TM_CCOEFF_NORMED)
         # tt = bgImg.copy()
         # w, h = templeteImg.shape[::-1]
         loc = np.where(res >= threshold)
@@ -106,17 +108,13 @@ class MyThread(QThread):
         global status
         outList = {}
         templates = PokerList
-        img_rgb = screen(hWnd)
+        global hWnd\n        hWnd = find_game_window()\n        img_rgb = screen(hWnd)
 
         if img_rgb is None:
             return
         img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2GRAY)
 
-        selfCard = img_gray[350:622, 10:1042]
-        upotherCard = img_gray[150:290, 10:550]
-        downotherCard = img_gray[150:290, 520:1040]
-        selfOutCard = img_gray[280:390, 200:900]
-        handCard = img_gray[50:110, 450:570]
+        # Approximate regions measured from the current 715x495 mini-program layout.\n        # The game is normalized to 1040x629 by util.screen.screen().\n        selfCard = img_gray[425:590, 150:900]\n        upotherCard = img_gray[200:340, 50:500]\n        downotherCard = img_gray[200:340, 750:1000]\n        selfOutCard = img_gray[340:450, 200:850]\n        handCard = img_gray[100:150, 470:565]
         num, x = self.matchImgNum(img_gray, continueGame, 0.74)
         if (num > 0):
             '''判断结束'''
@@ -255,7 +253,7 @@ def windowListener():
     # logWindow.windowListener()
 
 def top():
-    hwnd = win32gui.FindWindow(None, "欢乐斗地主")  # 获取当前窗口句柄
+    hwnd = find_game_window()  # 获取当前窗口句柄\n    if not hwnd:\n        return
     win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
     shell = win32com.client.Dispatch("WScript.Shell")
     shell.SendKeys('%')
@@ -265,7 +263,7 @@ def main():
     global window
     # global logWindow
     app = QtWidgets.QApplication([])
-    window = Window(hWnd)
+    if not hWnd:\n        print('请先打开微信小程序：腾讯欢乐斗地主')\n        return\n    window = Window(hWnd)
     # logWindow = LogWindow(hWnd)
     top()
 
