@@ -1,48 +1,55 @@
-#!/usr/bin/python
-# coding:utf-8
+# coding: utf-8
+"""Windows WeChat mini-program screenshot helper.
 
+Returns a BGR image at the legacy detector's expected resolution (1040x629).
+Pillow captures the visible desktop; the game must not be covered by other windows.
 """
-@author: css
-@software: PyCharm
-@file: screen.py
-@time: 2021/3/3 21:50:29
-"""
-import win32api
-import win32gui, win32ui, win32con
+import ctypes
+
 import cv2
 import numpy as np
+import win32gui
+from PIL import ImageGrab
 
 
-def screen(hWnd):
-    # print(hWnd)
-    # hWndDC = win32gui.FindWindow("Chrome_WidgetWin_0", "欢乐斗地主")
-    left, top, right, bot = win32gui.GetWindowRect(hWnd)
-    width = right - left
-    height = bot - top
-    # 窗口隐藏，无法截图
-    if top < 0:
+def enable_dpi_awareness():
+    try:
+        # Per-monitor awareness, required to keep Win32 coordinates and pixels aligned.
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except (AttributeError, OSError):
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except (AttributeError, OSError):
+            pass
+
+
+enable_dpi_awareness()
+
+
+def find_game_window():
+    for title in ("腾讯欢乐斗地主", "欢乐斗地主"):
+        hwnd = win32gui.FindWindow(None, title)
+        if hwnd and win32gui.IsWindow(hwnd):
+            return hwnd
+    return 0
+
+
+def screen(hwnd=None):
+    hwnd = hwnd if hwnd and win32gui.IsWindow(hwnd) else find_game_window()
+    if not hwnd or win32gui.IsIconic(hwnd):
         return None
-    r = win32gui.GetWindowRect(hWnd)
-    hwin = win32gui.GetDesktopWindow()
-    # 图片最左边距离主屏左上角的水平距离
-    left = win32api.GetSystemMetrics(win32con.SM_XVIRTUALSCREEN)
-    # 图片最上边距离主屏左上角的垂直距离
-    top = win32api.GetSystemMetrics(win32con.SM_YVIRTUALSCREEN)
-    hwindc = win32gui.GetWindowDC(hwin)
-    srcdc = win32ui.CreateDCFromHandle(hwindc)
-    memdc = srcdc.CreateCompatibleDC()
-    saveBitMap = win32ui.CreateBitmap()
-    saveBitMap.CreateCompatibleBitmap(srcdc, r[2] - r[0], r[3] - r[1])
-    memdc.SelectObject(saveBitMap)
-    memdc.BitBlt((-r[0], top - r[1]), (r[2], r[3] - top), srcdc, (left, top), win32con.SRCCOPY)
-    # bmp.SaveBitmapFile(memdc, bmpFileName)
 
-    signedIntsArray = saveBitMap.GetBitmapBits(True)
-    img = np.fromstring(signedIntsArray, dtype='uint8')
-    img.shape = (height, width, 4)
-    # 保存bitmap到内存设备描述表
-    img = cv2.resize(img, (1040, 629), interpolation=cv2.INTER_CUBIC)
-    img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGB)
-    # cv2.imwrite('screen.png', img)
-    return img
-# 欢乐斗地主记牌器
+    left, top, right, bottom = win32gui.GetWindowRect(hwnd)
+    if right <= left or bottom <= top:
+        return None
+
+    try:
+        pil_image = ImageGrab.grab(
+            bbox=(left, top, right, bottom),
+            all_screens=True,
+        )
+        image = cv2.cvtColor(np.asarray(pil_image), cv2.COLOR_RGB2BGR)
+        return cv2.resize(image, (1040, 629), interpolation=cv2.INTER_CUBIC)
+    except (OSError, ValueError, cv2.error) as exc:
+        print("游戏截图失败:", exc)
+        return None
