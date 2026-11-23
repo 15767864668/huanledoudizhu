@@ -109,7 +109,8 @@ class Window(QWidget):
         line.setGeometry(QRect(700, 0, 80, 30))
         line.setAutoFillBackground(True)
         # line.setStyleSheet('background-color: rgb(0, 0, 0)')
-        line.setText("出牌\n日志:")
+        line.setText("出牌
+日志:")
         line = QLabel(self)
         # 设置标签的左边距，上边距，宽，高
         line.setGeometry(QRect(690, 0, 1, self.height))
@@ -148,7 +149,12 @@ class Window(QWidget):
 
     def screenshot(self):
         img = screen(self.hWnd)
-        if img is None:\n            print('截图失败：请保持游戏窗口可见')\n            return\n        import os\n        os.makedirs('screen', exist_ok=True)\n        cv.imwrite('screen/screen' + str(time.time()).split('.')[0] + '.png', img)
+        if img is None:
+            print('截图失败：请保持游戏窗口可见')
+            return
+        import os
+        os.makedirs('screen', exist_ok=True)
+        cv.imwrite('screen/screen' + str(time.time()).split('.')[0] + '.png', img)
 
     def color(self, num):
         if num == 0:
@@ -212,7 +218,13 @@ class Window(QWidget):
         # print(num)
 
     def windowListener(self):
-        from util.screen import find_game_window\n        hwnd = find_game_window()\n        if not hwnd:\n            return\n        self.hWnd = hwnd\n        left, top, right, bot = win32gui.GetWindowRect(hwnd)\n        fgWnd = win32gui.GetForegroundWindow()
+        from util.screen import find_game_window
+        hwnd = find_game_window()
+        if not hwnd:
+            return
+        self.hWnd = hwnd
+        left, top, right, bot = win32gui.GetWindowRect(hwnd)
+        fgWnd = win32gui.GetForegroundWindow()
 
         self.move(left, top - self.height)
         # print(win32gui.GetWindowLong(self.selfWnd, win32con.GWL_EXSTYLE))
