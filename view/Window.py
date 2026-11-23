@@ -27,7 +27,7 @@ class Window(QWidget):
     def __init__(self, hWnd):
         super().__init__()
         left, top, right, bot = win32gui.GetWindowRect(hWnd)
-        self.setGeometry(0, 0, right - left, self.height)
+        self.setGeometry(0, 0, max(1040, right - left), self.height)
         # Qt.WindowStaysOnTopHint |
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool)
 
@@ -59,18 +59,18 @@ class Window(QWidget):
         # 设置标签的左边距，上边距，宽，高
         pokerLabel.setGeometry(QRect(0, 0, 800, 30))
         # 设置文本标签的字体和大小，粗细等
-        pokerLabel.setFont(QtGui.QFont("Roman times", 15, QtGui.QFont.Bold))
+        pokerLabel.setFont(QtGui.QFont("Microsoft YaHei", 11, QtGui.QFont.Bold))
         self.pokerNumLabel = QLabel(self)
         # 设置标签的左边距，上边距，宽，高
         self.pokerNumLabel.setGeometry(QRect(0, 25, 800, 30))
         # 设置文本标签的字体和大小，粗细等
-        self.pokerNumLabel.setFont(QtGui.QFont("Roman times", 15, QtGui.QFont.Bold))
+        self.pokerNumLabel.setFont(QtGui.QFont("Microsoft YaHei", 11, QtGui.QFont.Bold))
 
         self.handlePokerLabel = QLabel(self)
         # 设置标签的左边距，上边距，宽，高
         self.handlePokerLabel.setGeometry(QRect(0, 50, 800, 30))
         # 设置文本标签的字体和大小，粗细等
-        self.handlePokerLabel.setFont(QtGui.QFont("Roman times", 15, QtGui.QFont.Bold))
+        self.handlePokerLabel.setFont(QtGui.QFont("Microsoft YaHei", 11, QtGui.QFont.Bold))
 
         self.screen = QPushButton(self)
         self.screen.setText("截图")
@@ -80,18 +80,18 @@ class Window(QWidget):
         self.status = QLabel(self)
         self.status.setGeometry(QRect(230, 58, 80, 20))
         self.status.setText("未开始")
-        self.status.setFont(QtGui.QFont("Roman times", 15, QtGui.QFont.Bold))
+        self.status.setFont(QtGui.QFont("Microsoft YaHei", 11, QtGui.QFont.Bold))
         self.status.setStyleSheet('color: orange')
 
         self.setPokerSizeLabel = QPushButton(self)
         self.setPokerSizeLabel.setGeometry(QRect(950, 29, 80, 20))
         self.setPokerSizeLabel.setText("调整大小")
-        # self.setPokerSizeLabel.setFont(QtGui.QFont("Roman times", 15, QtGui.QFont.Bold))
+        # self.setPokerSizeLabel.setFont(QtGui.QFont("Microsoft YaHei", 11, QtGui.QFont.Bold))
         self.setPokerSizeLabel.clicked.connect(self.setPokerSize)
         self.clearLogButton = QPushButton(self)
         self.clearLogButton.setGeometry(QRect(950, 55, 80, 20))
         self.clearLogButton.setText("清空日志")
-        # self.setPokerSizeLabel.setFont(QtGui.QFont("Roman times", 15, QtGui.QFont.Bold))
+        # self.setPokerSizeLabel.setFont(QtGui.QFont("Microsoft YaHei", 11, QtGui.QFont.Bold))
         self.clearLogButton.clicked.connect(self.clearLog)
 
         line = QLabel(self)
@@ -148,7 +148,7 @@ class Window(QWidget):
 
     def screenshot(self):
         img = screen(self.hWnd)
-        cv.imwrite('screen/screen' + str(time.time()).split('.')[0] + '.png', img)
+        if img is None:\n            print('截图失败：请保持游戏窗口可见')\n            return\n        import os\n        os.makedirs('screen', exist_ok=True)\n        cv.imwrite('screen/screen' + str(time.time()).split('.')[0] + '.png', img)
 
     def color(self, num):
         if num == 0:
@@ -200,7 +200,7 @@ class Window(QWidget):
             self.log_text.moveCursor(self.log_text.textCursor().End)
 
     def gText(self, text, color='red'):
-        return "<font style = 'font-size:21px; font-weight: bold; color:" + color + ";'>" + text + "</font> &nbsp;"
+        return "<font style = 'font-size:16px; font-weight: bold; color:" + color + ";'>" + text + "</font> &nbsp;"
 
     def setHandPokerNum(self, num):
         text = '底牌：'
@@ -212,15 +212,14 @@ class Window(QWidget):
         # print(num)
 
     def windowListener(self):
-        left, top, right, bot = win32gui.GetWindowRect(self.hWnd)
-        fgWnd = win32gui.GetForegroundWindow()
+        from util.screen import find_game_window\n        hwnd = find_game_window()\n        if not hwnd:\n            return\n        self.hWnd = hwnd\n        left, top, right, bot = win32gui.GetWindowRect(hwnd)\n        fgWnd = win32gui.GetForegroundWindow()
 
         self.move(left, top - self.height)
         # print(win32gui.GetWindowLong(self.selfWnd, win32con.GWL_EXSTYLE))
         if fgWnd != self.hWnd and fgWnd != self.selfWnd:  # 不是顶层
             if not self.isTopWin:
                 # 隐藏
-                win32gui.SetWindowPos(self.selfWnd, win32con.HWND_BOTTOM, left, top - self.height, right - left,
+                win32gui.SetWindowPos(self.selfWnd, win32con.HWND_BOTTOM, left, top - self.height, max(1040, right - left),
                                       self.height,
                                       win32con.SWP_SHOWWINDOW)
                 self.isTopWin = True
