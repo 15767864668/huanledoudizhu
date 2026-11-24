@@ -109,8 +109,7 @@ class Window(QWidget):
         line.setGeometry(QRect(700, 0, 80, 30))
         line.setAutoFillBackground(True)
         # line.setStyleSheet('background-color: rgb(0, 0, 0)')
-        line.setText("出牌
-日志:")
+        line.setText("出牌\n日志:")
         line = QLabel(self)
         # 设置标签的左边距，上边距，宽，高
         line.setGeometry(QRect(690, 0, 1, self.height))
