@@ -128,7 +128,7 @@ class MyThread(QThread):
         upotherCard = img_gray[185:370, 120:525]
         downotherCard = img_gray[185:370, 515:940]
         selfOutCard = img_gray[255:420, 240:810]
-        handCard = img_gray[8:80, 455:590]
+        handCard = img_gray[100:151, 470:560]
         num, x = self.matchImgNum(img_gray, continueGame, 0.74)
         if (num > 0):
             '''判断结束'''
@@ -173,10 +173,10 @@ class MyThread(QThread):
         # The legacy bottom-card templates often fail on the current WeChat UI.
         # Use a conservative visual presence check to enter the round;
         # this does NOT assert that the ranks were recognized.
-        bottom_roi = img_gray[10:65, 465:585]
+        bottom_roi = img_gray[101:145, 475:555]
         bright_ratio = float(np.mean(bottom_roi > 205)) if bottom_roi.size else 0.0
-        bottom_visible = bright_ratio > 0.16
-        if (len(handList) > 0 or bottom_visible) and status == 0:
+        bottom_visible = bright_ratio > 0.22
+        if bottom_visible and status == 0:
             # print("开始")
             status = 1
             self.statusSignal.emit(status)
@@ -184,6 +184,7 @@ class MyThread(QThread):
             # print(handList)
             for pokerObj in templates:
                 pokerObj.init()
+            selfList = [pokerObj.num for pokerObj in templates]
 
         if len(upotherList) != 0:
             if isUpOut == 1:
