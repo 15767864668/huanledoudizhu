@@ -106,6 +106,19 @@ class MyThread(QThread):
 
         return num, last
 
+    def reset_round(self):
+        """Clear previous-round counters and recognition history."""
+        global status, isUpOut, isDownOut, isSelfOut
+        status = 0
+        isUpOut = isDownOut = isSelfOut = 0
+        for poker in PokerList:
+            poker.init()
+        if hasattr(self, '_turn_state'):
+            for state in self._turn_state.values():
+                state.update(last=None, streak=0, latched=False, blank=0)
+        self.statusSignal.emit(0)
+        self.breakSignal.emit([], [], {})
+
     def main(self):
 
         global isUpOut
@@ -129,14 +142,30 @@ class MyThread(QThread):
         downotherCard = img_gray[185:370, 515:940]
         selfOutCard = img_gray[255:420, 240:810]
         handCard = img_gray[100:151, 470:560]
-        num, x = self.matchImgNum(img_gray, continueGame, 0.74)
-        if (num > 0):
-            '''判断结束'''
-            if status != 0:
-                status = 0
-                self.statusSignal.emit(status)
+        # End-of-round detection is debounced. The old code only set status=0
+        # and left the previous counters and per-turn latches untouched.
+        if not hasattr(self, '_end_frames'):
+            self._end_frames = 0
+            self._clear_frames = 0
+            self._wait_for_next_round = False
+        end_matches, _ = self.matchImgNum(img_gray, continueGame, 0.74)
+        if end_matches > 0:
+            self._end_frames += 1
+            self._clear_frames = 0
+            if self._end_frames >= 2 and not self._wait_for_next_round:
+                self.reset_round()
+                self._wait_for_next_round = True
             return
-        if (status == -1):
+        self._end_frames = 0
+        if self._wait_for_next_round:
+            self._clear_frames += 1
+            # Wait for the result / continue overlay to disappear before
+            # allowing the next round to initialize.
+            if self._clear_frames < 3:
+                return
+            self._wait_for_next_round = False
+            self._clear_frames = 0
+        if status == -1:
             status = 0
         selfList = []
         upotherList = []
