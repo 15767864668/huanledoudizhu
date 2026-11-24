@@ -148,8 +148,9 @@ class MyThread(QThread):
             if status > 0:
                 # 判断手牌
                 if status == 1:
-                    num, x = self.matchImgNum(selfCard, pokerObj.selfImg)
-                    pokerObj.num = max(0, pokerObj.num - num)
+                    # Legacy hand templates are uncalibrated. Never subtract an
+                    # unverified partial hand: it corrupts all remaining counts.
+                    pass
                     # if (num > 0):
                     # print(pokerObj.name, num, end='|')
                     # cv2.imwrite('aaa.png', selfCard)
@@ -185,8 +186,9 @@ class MyThread(QThread):
             for pokerObj in templates:
                 pokerObj.init()
             selfList = [pokerObj.num for pokerObj in templates]
+            isUpOut = isDownOut = isSelfOut = 0
 
-        if len(upotherList) != 0:
+        if len(upotherList) != 0 and sum(c['num'] for c in upotherList) <= 20:
             if isUpOut == 1:
                 isUpOut = 2
             elif isUpOut == 2:
@@ -207,7 +209,7 @@ class MyThread(QThread):
         else:
             isUpOut = 0
 
-        if len(downotherList) != 0:
+        if len(downotherList) != 0 and sum(c['num'] for c in downotherList) <= 20:
             if isDownOut == 1:
                 isDownOut = 2
             elif isDownOut == 2:
@@ -227,7 +229,7 @@ class MyThread(QThread):
         else:
             isDownOut = 0
 
-        if len(selfOutList) != 0:
+        if len(selfOutList) != 0 and sum(c['num'] for c in selfOutList) <= 20:
             if isSelfOut == 1:
                 isSelfOut = 2
             elif isSelfOut == 2:
@@ -248,6 +250,8 @@ class MyThread(QThread):
                 isSelfOut = 1
         else:
             isSelfOut = 0
+        # Rebuild display from the canonical counters after every update.
+        selfList = [p.num for p in templates] if status > 0 else []
         self.breakSignal.emit(selfList, handList, outList)
 
     def run(self):
