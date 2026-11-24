@@ -13,6 +13,7 @@ from util.screen import *
 from view.Window import (Window, QThread, pyqtSignal, time, QtWidgets)
 from view.LogWindow import LogWindow
 import sys
+from collections import Counter
 import win32com.client
 import win32con
 import win32api
@@ -79,6 +80,12 @@ class MyThread(QThread):
     # 子类的构造函数必须先调用其父类的构造函数，重写run()方法。
     def __init__(self):
         super().__init__()
+        self.pending_hand = None
+        self.hand_applied = False
+
+    def set_initial_hand(self, ranks):
+        # Set from the GUI thread; consumed by the worker on the next tick.
+        self.pending_hand = list(ranks)
 
     def matchImgNum(self, bgImg, templeteImg, threshold=0.92, save=False):
         if (bgImg is None or templeteImg is None or bgImg.size == 0 or
@@ -110,6 +117,8 @@ class MyThread(QThread):
         """Clear previous-round counters and recognition history."""
         global status, isUpOut, isDownOut, isSelfOut
         status = 0
+        self.hand_applied = False
+        self.pending_hand = None
         isUpOut = isDownOut = isSelfOut = 0
         for poker in PokerList:
             poker.init()
@@ -216,11 +225,32 @@ class MyThread(QThread):
                 pokerObj.init()
             selfList = [pokerObj.num for pokerObj in templates]
             isUpOut = isDownOut = isSelfOut = 0
+            self.hand_applied = False
             if hasattr(self, '_turn_state'):
                 for st in self._turn_state.values():
                     st.update(last=None, streak=0, latched=False, blank=0)
 
-        # A play is accepted only after three identical observations, and
+        # A verified 17/20-card hand is the only safe basis for unknown counts.
+        # Do not subtract partial or guessed OCR results.
+        if status > 0 and self.pending_hand is not None and not self.hand_applied:
+            ranks = self.pending_hand
+            self.pending_hand = None
+            counts = Counter(ranks)
+            limits = {'王': 2, **{p.name: 4 for p in templates if p.name != '王'}}
+            if len(ranks) in (17, 20) and all(
+                name in limits and 0 < count <= limits[name]
+                for name, count in counts.items()
+            ):
+                # Rebuild from a clean deck, then apply the known hand.
+                # This is intended for the start of a new round, before any plays.
+                for poker in templates:
+                    poker.init()
+                    poker.num -= counts.get(poker.name, 0)
+                self.hand_applied = True
+                print('初始手牌已确认：', dict(counts))
+            else:
+                print('手牌无效：必须输入17或20张，且每个点数不超过牌组数量')
+                # A play is accepted only after three identical observations, and
         # only after a blank interval separates it from the previous play.
         if not hasattr(self, '_turn_state'):
             self._turn_state = {key: {'last': None, 'streak': 0, 'latched': False,
@@ -299,6 +329,7 @@ def main():
 
     th1 = MyThread()
     th1.breakSignal.connect(window.setNum)
+    window.handConfirmed.connect(th1.set_initial_hand)
     th1.statusSignal.connect(window.setStatus)
     th1.start()
     # window.setStyleSheet('background-color: rgba(0, 0, 0, 0); border-radius:25px; border:2px solid;')
