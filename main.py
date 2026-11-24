@@ -8,6 +8,7 @@
 @time: 2021/3/3 16:32:04
 """
 from vo.Poker import Poker
+from util.adaptive_recognizer import detect_cards, combine_cards
 from util.screen import *
 from view.Window import (Window, QThread, pyqtSignal, time, QtWidgets)
 from view.LogWindow import LogWindow
@@ -155,26 +156,16 @@ class MyThread(QThread):
 
                 selfList.append(pokerObj.num)
 
-                # 判断上家出牌，
-                num, x = self.matchImgNum(upotherCard, pokerObj.otherImg, 0.85)
-                # cv2.imwrite('bgImgu.png', upotherCard)
-                if num > 0:
-                    upotherList.append({'name': pokerObj.name, 'num': num, 'x': x})
-                # 下家出牌
-                num, x = self.matchImgNum(downotherCard, pokerObj.otherImg, 0.85)
-                if num > 0:
-                    downotherList.append({'name': pokerObj.name, 'num': num, 'x': x})
-
-                # 自家出牌
-                num, x = self.matchImgNum(selfOutCard, pokerObj.otherImg, 0.85)
-                # cv2.imwrite('bgImgSelf.png', selfOutCard)
-                if num > 0:
-                    selfOutList.append({'name': pokerObj.name, 'num': num, 'x': x})
             # 判断底牌
             num, x = self.matchImgNum(handCard, pokerObj.handImg, 0.8)
             if num > 0:
                 for ind in range(num):
                     handList.append(pokerObj.name)
+
+        if status > 0:
+            upotherList = combine_cards(detect_cards(upotherCard, templates, threshold=0.83))
+            downotherList = combine_cards(detect_cards(downotherCard, templates, threshold=0.83))
+            selfOutList = combine_cards(detect_cards(selfOutCard, templates, threshold=0.83))
 
         if status == 1:
             status = 2
@@ -225,7 +216,7 @@ class MyThread(QThread):
                 for i, pokerObj in enumerate(templates):
                     for out in downotherList:
                         if pokerObj.name == out.get('name'):
-                            pokerObj.num = pokerObj.num - out.get('num')
+                            pokerObj.num = max(0, pokerObj.num - out.get('num'))
                             selfList[i] = pokerObj.num
                 isDownOut = 3
             elif isDownOut == 3:
