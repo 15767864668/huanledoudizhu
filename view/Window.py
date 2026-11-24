@@ -54,23 +54,29 @@ class Window(QWidget):
 
         self.hWnd = hWnd
         self.setWindowTitle("CV记牌器")
-        pokerLabel = QLabel(self)
-        pokerLabel.setText("牌型： 王   2   A   K   Q   J   10   9   8   7   6   5   4   3 ")
-        # 设置标签的左边距，上边距，宽，高
-        pokerLabel.setGeometry(QRect(0, 0, 800, 30))
-        # 设置文本标签的字体和大小，粗细等
-        pokerLabel.setFont(QtGui.QFont("Microsoft YaHei", 11, QtGui.QFont.Bold))
+        # Fixed-width aligned columns: rich-text spaces collapsed and clipped values.
+        self.rank_names = ['王','2','A','K','Q','J','10','9','8','7','6','5','4','3']
+        self.rank_cells = []
+        self.count_cells = []
+        QLabel('牌型：', self).setGeometry(0, 0, 70, 26)
+        QLabel('数量：', self).setGeometry(0, 26, 70, 26)
+        for i, rank in enumerate(self.rank_names):
+            x = 70 + i * 43
+            rank_label = QLabel(rank, self)
+            rank_label.setGeometry(x, 0, 43, 26)
+            rank_label.setAlignment(Qt.AlignCenter)
+            rank_label.setFont(QtGui.QFont('Microsoft YaHei', 11, QtGui.QFont.Bold))
+            count_label = QLabel('?', self)
+            count_label.setGeometry(x, 26, 43, 26)
+            count_label.setAlignment(Qt.AlignCenter)
+            count_label.setFont(QtGui.QFont('Microsoft YaHei', 11, QtGui.QFont.Bold))
+            self.rank_cells.append(rank_label)
+            self.count_cells.append(count_label)
         self.pokerNumLabel = QLabel(self)
-        # 设置标签的左边距，上边距，宽，高
-        self.pokerNumLabel.setGeometry(QRect(0, 25, 800, 30))
-        # 设置文本标签的字体和大小，粗细等
-        self.pokerNumLabel.setFont(QtGui.QFont("Microsoft YaHei", 11, QtGui.QFont.Bold))
-
+        self.pokerNumLabel.hide()
         self.handlePokerLabel = QLabel(self)
-        # 设置标签的左边距，上边距，宽，高
-        self.handlePokerLabel.setGeometry(QRect(0, 50, 800, 30))
-        # 设置文本标签的字体和大小，粗细等
-        self.handlePokerLabel.setFont(QtGui.QFont("Microsoft YaHei", 11, QtGui.QFont.Bold))
+        self.handlePokerLabel.setGeometry(QRect(0, 52, 680, 27))
+        self.handlePokerLabel.setFont(QtGui.QFont('Microsoft YaHei', 11, QtGui.QFont.Bold))
 
         self.screen = QPushButton(self)
         self.screen.setText("截图")
@@ -172,14 +178,15 @@ class Window(QWidget):
             font) + "px; font-weight: bold; color:" + color + ";'>" + text + "</font>"
 
     def setNum(self, num, handNum, outList):
-        text = '数量：'
-        if len(num) > 0:
-            text += '&nbsp;'
-        for index, value in enumerate(num):
-            text = text + self.gText(str(value), self.color(value))
-            if (index == 6):
-                text += ' '
-        self.pokerNumLabel.setText(text)
+        # Display all 14 ranks in dedicated cells, never using HTML whitespace.
+        for i, cell in enumerate(self.count_cells):
+            if i < len(num) and isinstance(num[i], (int, float)):
+                value = int(num[i])
+                cell.setText(str(value))
+                cell.setStyleSheet('color: ' + (self.color(value) or 'black'))
+            else:
+                cell.setText('?')
+                cell.setStyleSheet('color: gray')
         self.setHandPokerNum(handNum)
         self.appendPokerLog(outList)
 
