@@ -125,8 +125,8 @@ class MyThread(QThread):
         # The game is normalized to 1040x629 by util.screen.screen().
         selfCard = img_gray[425:590, 150:900]
         upotherCard = img_gray[200:340, 50:500]
-        downotherCard = img_gray[200:340, 750:1000]
-        selfOutCard = img_gray[340:450, 200:850]
+        downotherCard = img_gray[200:340, 590:1000]
+        selfOutCard = img_gray[220:370, 300:740]
         handCard = img_gray[100:150, 470:565]
         num, x = self.matchImgNum(img_gray, continueGame, 0.74)
         if (num > 0):
@@ -179,7 +179,7 @@ class MyThread(QThread):
         if status == 1:
             status = 2
             self.statusSignal.emit(status)
-        if len(handList) > 0 and status == 0:
+        # The legacy bottom-card templates often fail on the current WeChat UI.\n        # Use a conservative visual presence check to enter the round;\n        # this does NOT assert that the ranks were recognized.\n        bottom_roi = img_gray[105:142, 478:555]\n        bright_ratio = float(np.mean(bottom_roi > 205)) if bottom_roi.size else 0.0\n        bottom_visible = bright_ratio > 0.23\n        if (len(handList) > 0 or bottom_visible) and status == 0:
             # print("开始")
             status = 1
             self.statusSignal.emit(status)
