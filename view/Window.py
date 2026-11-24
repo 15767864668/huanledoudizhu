@@ -10,7 +10,7 @@
 from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtCore import *
 from PyQt5.QtGui import QIcon, QFont, QTextCursor
-from PyQt5.QtWidgets import (QWidget, QPushButton,
+from PyQt5.QtWidgets import (QWidget, QPushButton, QInputDialog,
                              QSystemTrayIcon, QScrollArea, QTextBrowser, QMenu, QLabel, QAction)
 import time
 import win32gui, win32con
@@ -19,6 +19,7 @@ import cv2 as cv
 
 
 class Window(QWidget):
+    handConfirmed = pyqtSignal(list)
     isTopWin = True
     selfWnd = None
     height = 80
@@ -78,6 +79,10 @@ class Window(QWidget):
         self.handlePokerLabel.setGeometry(QRect(0, 52, 680, 27))
         self.handlePokerLabel.setFont(QtGui.QFont('Microsoft YaHei', 11, QtGui.QFont.Bold))
 
+        self.handButton = QPushButton('录入开局手牌', self)
+        self.handButton.setGeometry(QRect(790, 55, 145, 22))
+        self.handButton.clicked.connect(self.inputInitialHand)
+
         self.screen = QPushButton(self)
         self.screen.setText("截图")
         self.screen.setGeometry(QRect(950, 3, 50, 20))
@@ -131,6 +136,27 @@ class Window(QWidget):
         self.log_text.move(740, 0)
         self.log_text.resize(200, 80)
         self.log_text.setText(self.pokerLogStr)
+
+    def inputInitialHand(self):
+        prompt = ('请在本局首次出牌前录入17或20张手牌，空格分隔。\\n'
+                  '大小王输入 大王 小王；例如：大王 小王 2 K Q Q Q J J J 10 9 9 8 7 6 6')
+        raw, ok = QInputDialog.getText(self, '录入初始手牌', prompt)
+        if not ok:
+            return
+        tokens = raw.upper().replace('，', ' ').replace(',', ' ').split()
+        ranks = [('王' if t in ('大王', '小王', 'DW', 'XW') else t)
+                 for t in tokens]
+        from collections import Counter
+        counts = Counter(ranks)
+        valid = (len(ranks) in (17, 20) and
+                 all(t in self.rank_names for t in ranks) and
+                 counts['王'] <= 2 and
+                 all(v <= 4 for k, v in counts.items() if k != '王'))
+        if not valid:
+            QtWidgets.QMessageBox.warning(self, '录入失败', '必须输入17或20张合法手牌，牌之间用空格隔开。')
+            return
+        self.handConfirmed.emit(ranks)
+        QtWidgets.QMessageBox.information(self, '已提交', '手牌已提交。请确认是在本局首次出牌前录入。')
 
     def setStatus(self, status):
         if (status == 0):
