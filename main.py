@@ -187,69 +187,52 @@ class MyThread(QThread):
                 pokerObj.init()
             selfList = [pokerObj.num for pokerObj in templates]
             isUpOut = isDownOut = isSelfOut = 0
+            if hasattr(self, '_turn_state'):
+                for st in self._turn_state.values():
+                    st.update(last=None, streak=0, latched=False, blank=0)
 
-        if len(upotherList) != 0 and sum(c['num'] for c in upotherList) <= 20:
-            if isUpOut == 1:
-                isUpOut = 2
-            elif isUpOut == 2:
-                # print("上家：", end='')
-                # print(upotherList)
-                # out.upotherList = upotherList
-                outList["upotherList"] = upotherList
-                for i, pokerObj in enumerate(templates):
-                    for out in upotherList:
-                        if pokerObj.name == out.get('name'):
-                            pokerObj.num = max(0, pokerObj.num - out.get('num'))
-                            selfList[i] = pokerObj.num
-                isUpOut = 3
-            elif isUpOut == 3:
-                pass
+        # A play is accepted only after three identical observations, and
+        # only after a blank interval separates it from the previous play.
+        if not hasattr(self, '_turn_state'):
+            self._turn_state = {key: {'last': None, 'streak': 0, 'latched': False,
+                                      'blank': 0} for key in ('upotherList', 'downotherList', 'selfOutList')}
+        if status == 1:
+            for st in self._turn_state.values():
+                st.update(last=None, streak=0, latched=False, blank=0)
+        for key, cards in (('upotherList', upotherList),
+                           ('downotherList', downotherList),
+                           ('selfOutList', selfOutList)):
+            st = self._turn_state[key]
+            # Reject impossible rank multiplicities, including false joker groups.
+            valid = bool(cards) and sum(c['num'] for c in cards) <= 20
+            if valid:
+                valid = all(0 < c['num'] <= (2 if c['name'] == '王' else 4)
+                            for c in cards)
+            signature = tuple(sorted((c['name'], c['num']) for c in cards)) if valid else None
+            if signature is None:
+                st['blank'] += 1
+                if st['blank'] >= 2:
+                    st.update(last=None, streak=0, latched=False)
+                continue
+            st['blank'] = 0
+            if signature == st['last']:
+                st['streak'] += 1
             else:
-                isUpOut = 1
-        else:
-            isUpOut = 0
-
-        if len(downotherList) != 0 and sum(c['num'] for c in downotherList) <= 20:
-            if isDownOut == 1:
-                isDownOut = 2
-            elif isDownOut == 2:
-                # print("下家：", end='')
-                # print(downotherList)
-                outList['downotherList'] = downotherList
-                for i, pokerObj in enumerate(templates):
-                    for out in downotherList:
-                        if pokerObj.name == out.get('name'):
-                            pokerObj.num = max(0, pokerObj.num - out.get('num'))
-                            selfList[i] = pokerObj.num
-                isDownOut = 3
-            elif isDownOut == 3:
-                pass
-            else:
-                isDownOut = 1
-        else:
-            isDownOut = 0
-
-        if len(selfOutList) != 0 and sum(c['num'] for c in selfOutList) <= 20:
-            if isSelfOut == 1:
-                isSelfOut = 2
-            elif isSelfOut == 2:
-                # print("自家：", end='')
-                # print(selfOutList)
-                outList['selfOutList'] = selfOutList
-
-                # 自家出牌不减少牌
-                # for i, pokerObj in enumerate(templates):
-                #     for out in selfOutList:
-                #         if pokerObj.name == out.get('name'):
-                #             pokerObj.num = pokerObj.num - out.get('num')
-                #             selfList[i] = pokerObj.num
-                isSelfOut = 3
-            elif isSelfOut == 3:
-                pass
-            else:
-                isSelfOut = 1
-        else:
-            isSelfOut = 0
+                st['last'] = signature
+                st['streak'] = 1
+            if st['latched'] or st['streak'] < 3:
+                continue
+            st['latched'] = True
+            # Only subtract if the full observation is physically possible.
+            if key != 'selfOutList' and all(
+                next((p.num for p in templates if p.name == name), 0) >= count
+                for name, count in signature
+            ):
+                for name, count in signature:
+                    next(p for p in templates if p.name == name).num -= count
+                outList[key] = cards
+            elif key == 'selfOutList':
+                outList[key] = cards
         # Rebuild display from the canonical counters after every update.
         selfList = [p.num for p in templates] if status > 0 else []
         self.breakSignal.emit(selfList, handList, outList)
