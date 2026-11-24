@@ -13,6 +13,9 @@ from util.screen import *
 from view.Window import (Window, QThread, pyqtSignal, time, QtWidgets)
 from view.LogWindow import LogWindow
 import sys
+import os
+import json
+from datetime import datetime
 from collections import Counter
 import win32com.client
 import win32con
@@ -82,6 +85,28 @@ class MyThread(QThread):
         super().__init__()
         self.pending_hand = None
         self.hand_applied = False
+        self.play_events = 0
+        self.capture_round = 0
+        self.capture_last = {}
+        self.capture_count = 0
+
+    def record_event(self, kind, **fields):
+        os.makedirs('diagnostics', exist_ok=True)
+        event = {'time': datetime.now().isoformat(timespec='seconds'), 'type': kind, **fields}
+        with open('diagnostics/events.jsonl', 'a', encoding='utf-8') as file:
+            file.write(json.dumps(event, ensure_ascii=False) + '\\n')
+
+    def capture_sample(self, image, key, signature):
+        # Save only changes, at most 80 full frames per round.
+        if self.capture_last.get(key) == signature or self.capture_count >= 80:
+            return
+        self.capture_last[key] = signature
+        self.capture_count += 1
+        folder = os.path.join('diagnostics', 'round_%03d' % self.capture_round)
+        os.makedirs(folder, exist_ok=True)
+        filename = '%03d_%s.png' % (self.capture_count, key)
+        cv2.imwrite(os.path.join(folder, filename), image)
+        self.record_event('sample', file=os.path.join(folder, filename), zone=key, cards=signature)
 
     def set_initial_hand(self, ranks):
         # Set from the GUI thread; consumed by the worker on the next tick.
@@ -119,6 +144,9 @@ class MyThread(QThread):
         status = 0
         self.hand_applied = False
         self.pending_hand = None
+        self.play_events = 0
+        self.capture_last = {}
+        self.record_event('round_end', round=self.capture_round)
         isUpOut = isDownOut = isSelfOut = 0
         for poker in PokerList:
             poker.init()
@@ -226,6 +254,11 @@ class MyThread(QThread):
             selfList = [pokerObj.num for pokerObj in templates]
             isUpOut = isDownOut = isSelfOut = 0
             self.hand_applied = False
+            self.play_events = 0
+            self.capture_round += 1
+            self.capture_count = 0
+            self.capture_last = {}
+            self.record_event('round_start', round=self.capture_round)
             if hasattr(self, '_turn_state'):
                 for st in self._turn_state.values():
                     st.update(last=None, streak=0, latched=False, blank=0)
@@ -237,7 +270,10 @@ class MyThread(QThread):
             self.pending_hand = None
             counts = Counter(ranks)
             limits = {'王': 2, **{p.name: 4 for p in templates if p.name != '王'}}
-            if len(ranks) in (17, 20) and all(
+            if self.play_events:
+                print('已有出牌记录，禁止中途覆盖初始计数；请下一局开局录入')
+                self.record_event('hand_rejected_late', plays=self.play_events)
+            elif len(ranks) in (17, 20) and all(
                 name in limits and 0 < count <= limits[name]
                 for name, count in counts.items()
             ):
@@ -266,6 +302,8 @@ class MyThread(QThread):
                 valid = all(0 < c['num'] <= (2 if c['name'] == '王' else 4)
                             for c in cards)
             signature = tuple(sorted((c['name'], c['num']) for c in cards)) if valid else None
+            if status > 0 and signature is not None:
+                self.capture_sample(img_rgb, key, list(signature))
             if signature is None:
                 st['blank'] += 1
                 if st['blank'] >= 2:
@@ -288,8 +326,12 @@ class MyThread(QThread):
                 for name, count in signature:
                     next(p for p in templates if p.name == name).num -= count
                 outList[key] = cards
+                self.play_events += 1
+                self.record_event('deduct', player=key, cards=list(signature), remaining={p.name:p.num for p in templates})
             elif key == 'selfOutList':
                 outList[key] = cards
+                self.play_events += 1
+                self.record_event('self_play', cards=list(signature))
         # Rebuild display from the canonical counters after every update.
         selfList = [p.num for p in templates] if status > 0 else []
         self.breakSignal.emit(selfList, handList, outList)
