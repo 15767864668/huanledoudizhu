@@ -196,9 +196,7 @@ class MyThread(QThread):
         if not hasattr(self, '_turn_state'):
             self._turn_state = {key: {'last': None, 'streak': 0, 'latched': False,
                                       'blank': 0} for key in ('upotherList', 'downotherList', 'selfOutList')}
-        if status == 1:
-            for st in self._turn_state.values():
-                st.update(last=None, streak=0, latched=False, blank=0)
+        # Do not reset observation streak on the first active frame.
         for key, cards in (('upotherList', upotherList),
                            ('downotherList', downotherList),
                            ('selfOutList', selfOutList)):
