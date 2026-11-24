@@ -123,11 +123,11 @@ class MyThread(QThread):
 
         # Approximate regions measured from the current 715x495 mini-program layout.
         # The game is normalized to 1040x629 by util.screen.screen().
-        selfCard = img_gray[425:590, 150:900]
-        upotherCard = img_gray[200:340, 50:500]
-        downotherCard = img_gray[200:340, 590:1000]
-        selfOutCard = img_gray[220:370, 300:740]
-        handCard = img_gray[100:150, 470:565]
+        selfCard = img_gray[410:595, 90:990]
+        upotherCard = img_gray[185:370, 120:525]
+        downotherCard = img_gray[185:370, 515:940]
+        selfOutCard = img_gray[255:420, 240:810]
+        handCard = img_gray[8:80, 455:590]
         num, x = self.matchImgNum(img_gray, continueGame, 0.74)
         if (num > 0):
             '''判断结束'''
@@ -148,7 +148,7 @@ class MyThread(QThread):
                 # 判断手牌
                 if status == 1:
                     num, x = self.matchImgNum(selfCard, pokerObj.selfImg)
-                    pokerObj.num = pokerObj.num - num
+                    pokerObj.num = max(0, pokerObj.num - num)
                     # if (num > 0):
                     # print(pokerObj.name, num, end='|')
                     # cv2.imwrite('aaa.png', selfCard)
@@ -205,7 +205,7 @@ class MyThread(QThread):
                 for i, pokerObj in enumerate(templates):
                     for out in upotherList:
                         if pokerObj.name == out.get('name'):
-                            pokerObj.num = pokerObj.num - out.get('num')
+                            pokerObj.num = max(0, pokerObj.num - out.get('num'))
                             selfList[i] = pokerObj.num
                 isUpOut = 3
             elif isUpOut == 3:
