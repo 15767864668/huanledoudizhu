@@ -179,7 +179,13 @@ class MyThread(QThread):
         if status == 1:
             status = 2
             self.statusSignal.emit(status)
-        # The legacy bottom-card templates often fail on the current WeChat UI.\n        # Use a conservative visual presence check to enter the round;\n        # this does NOT assert that the ranks were recognized.\n        bottom_roi = img_gray[105:142, 478:555]\n        bright_ratio = float(np.mean(bottom_roi > 205)) if bottom_roi.size else 0.0\n        bottom_visible = bright_ratio > 0.23\n        if (len(handList) > 0 or bottom_visible) and status == 0:
+        # The legacy bottom-card templates often fail on the current WeChat UI.
+        # Use a conservative visual presence check to enter the round;
+        # this does NOT assert that the ranks were recognized.
+        bottom_roi = img_gray[10:65, 465:585]
+        bright_ratio = float(np.mean(bottom_roi > 205)) if bottom_roi.size else 0.0
+        bottom_visible = bright_ratio > 0.16
+        if (len(handList) > 0 or bottom_visible) and status == 0:
             # print("开始")
             status = 1
             self.statusSignal.emit(status)
